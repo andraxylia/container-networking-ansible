@@ -1,0 +1,19 @@
+[all:vars]
+ec2_vpc_id = {{ opencontrail_network.id }}
+ec2_public_subnet_id = {{ ec2_public_subnet.id }}
+opencontrail_public_subnet = {{ k8s_public_subnet }}
+opencontrail_service_addresses = {{ k8s_service_addresses }}
+
+[deployer]
+{{ k8s_management.server.accessIPv4 }} id={{ k8s_management.id }} ansible_ssh_user={{ ssh_user }}
+
+[masters]
+{{ k8s_master.server.accessIPv4 }} id={{ k8s_master.id }} ansible_ssh_user={{ ssh_user }}
+
+[gateways]
+{{ k8s_gateway.server.accessIPv4 }} id={{ k8s_gateway.id }} ansible_ssh_user={{ ssh_user }}
+
+[nodes]
+{% for instance in k8s_nodes.results %}
+{{ instance.server.accessIPv4 }} id={{ instance.id }} ansible_ssh_user={{ ssh_user }}
+{% endfor %}

@@ -1,0 +1,34 @@
+---
+- name: tmp directory
+  file: path="{{ path_tmp }}" state=directory
+
+- name: Download kubernetes release
+  get_url: url=https://github.com/kubernetes/kubernetes/releases/download/v1.3.5/kubernetes.tar.gz dest="{{ path_tmp }}"
+  # creates: "{{ path_tmp }}/kubernetes.tar.gz"
+
+- name: Unpack kubernetes tarball
+  unarchive:
+    src: "{{ path_tmp }}/kubernetes.tar.gz"
+    dest: "{{ path_tmp }}"
+    copy: no
+    creates: "{{ path_tmp }}/kubernetes/server/kubernetes-server-linux-amd64.tar.gz"
+
+- name: Unpack linux binaries
+  unarchive:
+    src: "{{ path_tmp }}/kubernetes/server/kubernetes-server-linux-amd64.tar.gz"
+    dest: "{{ path_tmp }}"
+    copy: no
+    creates: "{{ path_tmp }}/kubernetes/server/bin/kube-apiserver"
+
+- name: Ansible configuration file
+  copy: src=ansible.cfg dest="~/.ansible.cfg"
+
+- name: Code directory
+  file: path="{{ path_src }}" state=directory
+
+- name: Fetch k8s provisioning scripts
+#  git: repo=https://github.com/kubernetes/contrib.git dest="{{ path_src }}/contrib" update=no version=710435a
+  git: repo=https://github.com/kubernetes/contrib.git dest="{{ path_src }}/contrib" force=yes update=no version=1958461
+
+- name: Copy inventory file
+  copy: src="{{ inventory_dir }}/inventory.cluster" dest="{{ path_src }}/contrib/ansible/inventory/inventory"

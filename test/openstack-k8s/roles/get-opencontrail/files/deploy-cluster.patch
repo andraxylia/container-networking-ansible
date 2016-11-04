@@ -1,0 +1,9 @@
+38a39
+>     - { role: opencontrail_facts, when: networking == 'opencontrail'}
+39a41,42
+>   vars:
+>     opencontrail_cluster_type: kubernetes
+80c83
+<     - { role: opencontrail-provision, when: networking == 'opencontrail' }
+---
+>     - { role: opencontrail_provision, when: networking == 'opencontrail' }

@@ -1,0 +1,52 @@
+---
+- name: python2
+   gather_facts: no
+   pre_tasks:
+     - raw: sudo apt-get -y install python
+   when  ansible_distribution == 'Ubuntu' and ansible_distribution_major_version|int > 15
+
+- name: Update apt cache
+  apt: update_cache=yes 
+#  apt: update_cache=yes cache_valid_time=3600
+  when: ansible_os_family == "Debian"
+
+- name: Python requirements
+  package: name="{{ item }}" state=present
+  with_items:
+    - python
+    - python-dev
+    - python-pip
+    - python-netaddr
+    - python-markupsafe
+    - python-pbr
+    - git
+    - ansible
+  when: ansible_os_family == "Debian"
+
+#- name: Requires pbr
+#  pip: name=pbr state=present
+#  when: ansible_os_family == "Debian"
+
+#- name: Requires ansible
+#  pip: name=ansible state=present
+#  when: ansible_os_family == "Debian"
+
+#- name: Update apt cache
+#  yum: update_cache=yes 
+#  when: ansible_os_family == "RedHat"
+
+- name: Python requirements
+  package: name="{{ item }}" state=present
+  with_items:
+    - python
+#    - python2-dnf
+#    - python-pip
+    - python-netaddr
+    - python-markupsafe
+    - pytz
+    - epel-release
+    - ansible
+    - git
+    - libselinux-python
+    - patch
+  when: ansible_os_family == "RedHat"

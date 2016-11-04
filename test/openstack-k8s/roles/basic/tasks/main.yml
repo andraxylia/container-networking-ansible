@@ -1,0 +1,232 @@
+- debug: var=cloud_image
+
+- set_fact:
+   k8s_public_subnet: "{% if job_id is defined %}172.16.{{ 8 * (job_id|int % 32) }}.0/24{% else %}172.18.0.0/20{% endif %}"
+   k8s_service_addresses: "{% if job_id is defined %}10.{{ 192 + (job_id|int % 32) }}.0.0/16{% else %}10.64.0.0/16{% endif %}"
+
+- debug: var=k8s_public_subnet
+- debug: var=k8s_service_addresses
+      
+- name: Create opencontrail-ci-nw network 
+  os_network:
+    cloud: "{{ orchestrator }}"
+    name: opencontrail-ci-nw
+    
+- name: Create opencontrail-ci-public subnet
+  os_subnet:
+    cloud: "{{ orchestrator }}"
+    network_name: opencontrail-ci-nw
+    name: opencontrail-ci-public
+    cidr: 10.10.0.0/20
+#    host_routes:
+#     - destination: 0.0.0.0/0
+#       nexthop: 10.10.0.1
+#     - destination: "{{ k8s_public_subnet }}"
+#       nexthop: "{{ floating_ip_gw }}"
+#     - destination: "{{ k8s_service_addresses }}"
+#       nexthop: "{{ floating_ip_gw }}"
+
+- name: Create opencontrail-ci-private subnet
+  os_subnet:
+    cloud: "{{ orchestrator }}"
+    network_name: opencontrail-ci-nw
+    name: opencontrail-ci-private
+    cidr: 10.10.32.0/20
+
+- name: Locate the Opencontrail network
+  os_networks_facts:
+    cloud: "{{ orchestrator }}"
+    name: opencontrail-ci-nw
+
+- set_fact:
+   opencontrail_network: "{{openstack_networks[0]}}"
+   
+- debug: var=opencontrail_network
+
+- name: Locate Opencontrail subnet
+  os_subnets_facts:
+    cloud: "{{ orchestrator }}"
+    name: opencontrail-ci-private
+
+- debug: var=openstack_subnets[0]
+
+- name: Locate Opencontrail public subnet
+  os_subnets_facts:
+    cloud: "{{ orchestrator }}"
+    name: opencontrail-ci-public
+
+- set_fact:
+   ec2_public_subnet: "{{openstack_subnets[0]}}"
+
+- debug: var=ec2_public_subnet
+
+- name: Create deployer security-group management not used now
+  os_security_group:
+    cloud: "{{ orchestrator }}"
+    name: k8s-mgmt-sg
+    description: "k8s deployer security-group"
+    state: present
+  register: sg_management
+    
+- name: Create deployer security-group ingress rule allow tcp port 22 (ssh) not used now
+  os_security_group_rule:
+    cloud: "{{ orchestrator }}"
+    security_group: k8s-mgmt-sg
+    direction: ingress
+    protocol: tcp
+    port_range_min: 22
+    port_range_max: 22
+    remote_ip_prefix: 0.0.0.0/0
+  ignore_errors: True
+
+- name: Create deployer security-group ingress rule allow tcp port 22 (ssh) not used now
+  os_security_group_rule:
+    cloud: "{{ orchestrator }}"
+    security_group: k8s-mgmt-sg
+    direction: egress
+    protocol: tcp
+    port_range_min: 22
+    port_range_max: 22
+    remote_ip_prefix: 0.0.0.0/0
+  ignore_errors: True
+  
+- name:  Create security-group cluster use not used now
+  os_security_group:
+    cloud: "{{ orchestrator }}"
+    name: k8s-cluster-sg
+    description: "k8s cluster security-group"
+  register: sg_cluster
+  ignore_errors: True
+
+- name: Create cluster security-group ingress rule allow all from k8s-basic-deployer
+  os_security_group_rule:
+    cloud: "{{ orchestrator }}"
+    security_group: k8s-cluster-sg
+    direction: ingress
+    remote_group: "{{ sg_management.id }}"
+  ignore_errors: True
+
+- name:  Create security-group allow all
+  os_security_group:
+    cloud: "{{ orchestrator }}"
+    name: allow-all-sg
+    description: "k8s cluster security-group"
+  register: sg_allow_all
+  ignore_errors: True
+
+- name: Create security-group ingress rule allow all ingress ip
+  os_security_group_rule:
+    cloud: "{{ orchestrator }}"
+    security_group: allow-all-sg
+    direction: ingress
+    remote_ip_prefix: 0.0.0.0/0
+  ignore_errors: True
+
+- name: Create security-group ingress rule allow all ingress ipv6
+  os_security_group_rule:
+    cloud: "{{ orchestrator }}"
+    security_group: allow-all-sg
+    direction: ingress
+    remote_ip_prefix: ::/0
+  ignore_errors: True
+
+#- name: Create deployer security-group ingress rule allow tcp port 22 (ssh) 
+#  os_security_group_rule:
+#    cloud: "{{ orchestrator }}"
+#    security_group: allow-all-sg
+#    direction: ingress
+#    protocol: tcp
+#    port_range_min: 22
+#    port_range_max: 22
+#    remote_ip_prefix: 0.0.0.0/0
+#  ignore_errors: True
+  
+#- name: Create deployer security-group ingress rule allow tcp port 22 (ssh) 
+#  os_security_group_rule:
+#    cloud: "{{ orchestrator }}"
+#   security_group: allow-all-sg
+#    direction: egress
+#    protocol: tcp
+#    port_range_min: 22
+#    port_range_max: 22
+#    remote_ip_prefix: 0.0.0.0/0
+#  ignore_errors: True
+  
+- name: Create instance for gateway
+  os_server:
+    cloud: "{{ orchestrator }}"
+    name: "k8s-gateway-{{ job_id | default('00') }}"
+    image: "{{ cloud_image }}"
+    key_name: k8s
+    flavor: m1.large
+    nics:
+       - net-name: "{{ public_nw }}"
+       - net-name: opencontrail-ci-nw
+    security_groups: allow-all-sg
+    auto_ip: yes
+    wait: yes
+  register: k8s_gateway
+
+- name: Create instance for management host
+  os_server:
+    cloud: "{{ orchestrator }}"
+    name: "k8s-mgmt-{{ job_id | default('00') }}"
+    image: "{{ cloud_image }}"
+    key_name: k8s
+    flavor: m1.large
+    nics:
+       - net-name: "{{ public_nw }}"
+       - net-name: opencontrail-ci-nw
+    auto_ip: yes
+    security_groups: allow-all-sg
+    wait: yes
+  register: k8s_management
+
+- debug: var=k8s_management
+
+- add_host: name="{{ k8s_management.server.accessIPv4 }}" groups=deployer ansible_ssh_user="{{ ssh_user }}"
+
+- name: Create instance for master
+  os_server:
+    cloud: "{{ orchestrator }}"
+    name: "k8s-master-{{ job_id | default('00') }}"
+    image: "{{ cloud_image }}"
+    key_name: k8s
+    timeout: 30
+    flavor: m1.large
+    nics:
+      - net-name: "{{ public_nw }}"
+      - net-name: opencontrail-ci-nw
+    security_groups: allow-all-sg
+    auto_ip: yes
+    wait: yes
+  register: k8s_master
+  
+- debug: var=k8s_master
+
+- name: Create instance for compute nodes
+  os_server:
+    cloud: "{{ orchestrator }}"
+    name: "k8s-node-{{ job_id | default('00') }}-{{ item }}"
+    image: "{{ cloud_image }}"
+    key_name: k8s
+    flavor: m1.large
+    nics:
+      - net-name: "{{ public_nw }}"
+      - net-name: opencontrail-ci-nw
+    security_groups: allow-all-sg
+    auto_ip: yes
+    wait: yes
+  with_sequence: count=2
+  register: k8s_nodes
+
+- debug: var=k8s_nodes
+
+- debug: var=item.server.addresses['opencontrail-ci-nw'][0].addr
+  with_items: "{{ k8s_nodes.results }}"
+
+- name: Store the status of the cluster
+  template: src=status.j2 dest="{{ inventory_dir }}/cluster.status"
+
+- name: Create inventory file
+  template: src=inventory.j2 dest="{{ inventory_dir }}/inventory.cluster"

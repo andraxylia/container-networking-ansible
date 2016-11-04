@@ -1,0 +1,18 @@
+---
+#cloud_image: ubuntu-cloud
+cloud_image: ubuntu-xenial-cloud
+
+# username for ssh into remote VMs
+ssh_user: ubuntu
+
+# path used to store k8s binaries in management host
+path_tmp: /home/ubuntu/tmp
+
+# path used to store ansible playbook in management host
+path_src: /home/ubuntu/src
+
+orchestrator: openstack
+
+kube_service_addresses: 10.64.0.0/16
+
+public_nw: __public__

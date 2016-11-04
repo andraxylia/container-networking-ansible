@@ -1,0 +1,29 @@
+- hosts: deployer
+  user: fedora
+  sudo: yes
+  roles:
+    - deployer_install
+  tags:
+    - deployer-install
+
+#- hosts: deployer
+#  user: ubuntu
+#  roles:
+#    - workspace
+#  tags:
+#    - workspace
+
+- hosts: deployer
+  user: fedora
+  roles:
+    - get-k8s
+  tags:
+    - get-k8s
+
+- hosts: deployer
+  user: fedora
+  roles:
+    - get-opencontrail
+  tags:
+    - get-opencontrail
+ 

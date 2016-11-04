@@ -1,0 +1,37 @@
+- hosts: cloud_orchestrator
+  connection: local
+  gather_facts: False
+  roles:
+    - basic
+  tags:
+    - create
+
+- hosts: deployer
+  user: ubuntu
+  sudo: yes
+  roles:
+    - deployer_install
+  tags:
+    - deployer-install
+
+#- hosts: deployer
+#  user: ubuntu
+#  sudo: yes
+#  roles:
+#    - workspace
+#  tags:
+#    - workspace
+
+- hosts: deployer
+  user: ubuntu
+  roles:
+    - get-k8s
+  tags:
+    - get-k8s
+
+- hosts: deployer
+  user: ubuntu
+  roles:
+    - get-opencontrail
+  tags:
+    - get-opencontrail
