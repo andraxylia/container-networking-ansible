@@ -1,7 +1,7 @@
 clouds:
   openstack:
     auth:
-      auth_url: http://10.84.29.27:5000/v2.0/
-      username: admin
-      password: contrail123
-      project_name: andra-k8s
+#      auth_url: http://<Openstack-IP>:5000/v2.0/
+#      username: <>
+#      password: <>
+#      project_name: <>
